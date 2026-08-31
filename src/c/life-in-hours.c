@@ -1,15 +1,16 @@
 #include <pebble.h>
-
-
+#define HOURS_IN_BLOCK 6
+#define BLOCKS_IN_DAY 4
 
 static Window *s_window;
 static TextLayer *title_text_layer;
-static TextLayer *row1_text_layer;
-static TextLayer *row2_text_layer;
-static TextLayer *row3_text_layer;
-static TextLayer *row4_text_layer;
-TextLayer* row_array[4];
+TextLayer* hours_in_day[24];
 uint16_t selected_row=0; 
+
+typedef struct{
+  TextLayer* hours_in_block[HOURS_IN_BLOCK];
+}HourBlock;
+HourBlock* blocks_of_hours[BLOCKS_IN_DAY];
 
 uint16_t what_hour_is_it(){
   time_t now = time(NULL);
@@ -18,38 +19,43 @@ uint16_t what_hour_is_it(){
   return hour;
 }
 
+void hours_passed(uint16_t hours_left){
+  for (size_t i = 0; i < BLOCKS_IN_DAY; i++){
+    for (size_t j = 0; j < HOURS_IN_BLOCK; j++){
+      if(hours_left == 0){
+        return;
+      }else{
+        text_layer_set_text(blocks_of_hours[i]->hours_in_block[j],"x");
+        hours_left--;
+      }
+    }
+    
+  }
+  
+}
+
 static void prv_select_click_handler(ClickRecognizerRef recognizer, void *context) {
-  char* hours_taken = "x x x x x x";
   // What hour is it ?
   uint16_t hours_now = what_hour_is_it();
-  // if hour > 6 row1 = x
-  if(hours_now > 6){
-    text_layer_set_text(row_array[0],hours_taken);
-  }
-  // if hour > 12 row1 && row2 = x
-  if(hours_now > 12){
-    text_layer_set_text(row_array[1],hours_taken);
-  }
-  // if hour > 18 row1 && row2 && row3 = x
-  if(hours_now > 18){
-    text_layer_set_text(row_array[2],hours_taken);
-  }
+  hours_passed(hours_now);
 }
 
 static void prv_down_click_handler(ClickRecognizerRef recognizer, void *context) {
   if(selected_row < 3){
     selected_row++;
   }
-  text_layer_set_font(row_array[selected_row-1],fonts_get_system_font(FONT_KEY_GOTHIC_24));
-  text_layer_set_font(row_array[selected_row],fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+  for(int h=0; h < HOURS_IN_BLOCK; h++){
+    // text_layer_set_font(blocks[selected_row-1],fonts_get_system_font(FONT_KEY_GOTHIC_24));
+    // text_layer_set_font(blocks[selected_row],fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+  }
 }
 
 static void prv_up_click_handler(ClickRecognizerRef recognizer, void *context) {
   if(selected_row > 0){
     selected_row--;
   }
-  text_layer_set_font(row_array[selected_row+1],fonts_get_system_font(FONT_KEY_GOTHIC_24));
-  text_layer_set_font(row_array[selected_row],fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+  // text_layer_set_font(row_array[selected_row+1],fonts_get_system_font(FONT_KEY_GOTHIC_24));
+  // text_layer_set_font(row_array[selected_row],fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
 }
 
 static void prv_click_config_provider(void *context) {
@@ -68,38 +74,29 @@ static void prv_window_load(Window *window) {
   text_layer_set_text(title_text_layer,"Life in Hours \U0001F603");
   text_layer_set_font(title_text_layer,fonts_get_system_font(FONT_KEY_GOTHIC_28));
   layer_add_child(window_layer, text_layer_get_layer(title_text_layer));
-  // 
-  row1_text_layer = text_layer_create(GRect(0, 40, bounds.size.w, 30));
-  row2_text_layer = text_layer_create(GRect(0, 70, bounds.size.w, 30));
-  row3_text_layer = text_layer_create(GRect(0, 100, bounds.size.w, 30));
-  row4_text_layer = text_layer_create(GRect(0, 130, bounds.size.w, 30));
-  // 
-  text_layer_set_text_alignment(row1_text_layer, GTextAlignmentCenter);
-  text_layer_set_text_alignment(row2_text_layer, GTextAlignmentCenter);
-  text_layer_set_text_alignment(row3_text_layer, GTextAlignmentCenter);
-  text_layer_set_text_alignment(row4_text_layer, GTextAlignmentCenter);
-  //
-  char* hours_not_taken = ". . . . . .";
-  text_layer_set_text(row1_text_layer,hours_not_taken);
-  text_layer_set_text(row2_text_layer,hours_not_taken);
-  text_layer_set_text(row3_text_layer,hours_not_taken);
-  text_layer_set_text(row4_text_layer,hours_not_taken);
-  //
-  layer_add_child(window_layer, text_layer_get_layer(row1_text_layer));
-  layer_add_child(window_layer, text_layer_get_layer(row2_text_layer));
-  layer_add_child(window_layer, text_layer_get_layer(row3_text_layer));
-  layer_add_child(window_layer, text_layer_get_layer(row4_text_layer));
-
-  row_array[0] = row1_text_layer;
-  row_array[1]= row2_text_layer;
-  row_array[2]= row3_text_layer;
-  row_array[3]= row4_text_layer;
+  // Block
+  uint16_t y_increments=0;
+  uint16_t x_increments=0;
+  for(int i =0; i < BLOCKS_IN_DAY; i++){
+    // Moves 30 spaces down and resets x to start of the row
+    y_increments += 30;
+    x_increments = 0;
+    HourBlock* block = malloc(sizeof(HourBlock));
+    for(int j =0; j < HOURS_IN_BLOCK; j++){
+      block->hours_in_block[j] = text_layer_create(GRect(5+x_increments, 10+y_increments, 30, 30)); 
+      x_increments += 20;
+      text_layer_set_text_alignment(block->hours_in_block[j], GTextAlignmentCenter);
+      text_layer_set_text(block->hours_in_block[j],".");
+      layer_add_child(window_layer, text_layer_get_layer(block->hours_in_block[j]));
+    }
+    blocks_of_hours[i] = block;
+  }
 }
 
 static void prv_window_unload(Window *window) {
   text_layer_destroy(title_text_layer);
   for(int i=0; i < 4 ; i++){
-    text_layer_destroy(row_array[i]);
+    // text_layer_destroy(row_array[i]);
   }
 }
 
