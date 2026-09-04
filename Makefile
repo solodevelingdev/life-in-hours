@@ -2,4 +2,4 @@ all:
 	pebble build
 
 install:
-	pebble install --emulator basalt
+	pebble install --emulator emery
